@@ -1,10 +1,7 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Query
-from fastapi.responses import JSONResponse
+# app/services/s3_service.py
 import boto3
 from botocore.exceptions import NoCredentialsError
 from botocore.config import Config
-
-app = FastAPI()
 
 ACCESS_KEY = "e85686a635a6416fa784ee60dd93bdff"
 SECRET_KEY = "a1a0f6827d0740b2a13dfc88a529facf"
@@ -24,18 +21,10 @@ s3_client = boto3.client(
     config=s3_config
 )
 
-@app.post("/upload/")
-async def upload_file(
-    file: UploadFile = File(...),
-    mime_type: str = Query(None, description="MIME type del archivo"),
-    bucket: str = Query("retail-images", description="Nombre del bucket"),
-    filename: str = Query(None, description="Nombre del archivo en el almacenamiento")
-):
+async def upload_to_s3(file, mime_type, bucket, filename):
     try:
         filename = filename or file.filename
-
         unique_filename = f"fernando-{filename}"
-
         mime_type = mime_type or file.content_type
 
         file_content = file.file.read()
@@ -49,10 +38,22 @@ async def upload_file(
         )
 
         file_url = f"https://{bucket}.s3.de.io.cloud.ovh.net/{unique_filename}"
-
-        return JSONResponse(content={"file_url": file_url}, status_code=201)
+        return file_url
 
     except NoCredentialsError:
-        raise HTTPException(status_code=401, detail="Credenciales de OVH Object Storage no válidas")
+        raise Exception("Credenciales de OVH Object Storage no válidas")
+
+async def delete_from_s3(bucket, filename):
+    try:
+        response = s3_client.delete_object(
+            Bucket=bucket,
+            Key=filename
+        )
+        if response.get("ResponseMetadata", {}).get("HTTPStatusCode") == 204:
+            return {"message": "File deleted successfully"}
+        else:
+            raise Exception("Failed to delete file from S3")
+    except NoCredentialsError:
+        raise Exception("Credenciales de OVH Object Storage no válidas")
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        raise Exception(f"Error deleting file: {str(e)}")
