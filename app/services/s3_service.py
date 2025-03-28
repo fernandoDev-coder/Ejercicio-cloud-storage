@@ -24,7 +24,8 @@ s3_client = boto3.client(
 async def upload_to_s3(file, mime_type, bucket, filename):
     try:
         filename = filename or file.filename
-        unique_filename = f"fernando-{filename}"
+        # unique_filename = f"fernando-{filename}"
+        unique_filename = f"{filename}"
         mime_type = mime_type or file.content_type
 
         file_content = file.file.read()
